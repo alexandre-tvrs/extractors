@@ -1,0 +1,6 @@
+lxml
+pandas
+aiohttp
+requests
+prompt_toolkit
+beautifulsoup4
