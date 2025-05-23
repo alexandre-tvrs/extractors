@@ -4,12 +4,12 @@ from pandas import DataFrame
 from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
 from requests import Response, Session
+from utils import get_first_view_state, get_precatory_data
 
 
 API_URL: str = "https://sistemas.tjms.jus.br/sapre/publico/classificacao.xhtml"
 COLUMNS = ["ORDEM", "EXECUÇÃO", "NÚMERO DO PROCESSO", "COMARCA", "ANO LANÇAMENTO", "NATUREZA", "DATA CADASTRO", "TIPO DE CLASSIFICAÇÃO", "VALOR ORIGINAL", "VALOR ATUAL", "SITUAÇÃO"]
 ROWS_PER_PAGE: int = 300
-ROOF: int = 10000
 DATA: list = []
 HEADER: dict = {
     "Faces-Request": "partial/ajax",
@@ -38,19 +38,10 @@ def get_first_response(session: Session, view_state: str, option: int) -> str:
     response: Response = session.post(API_URL, data=payload, headers=HEADER)
     return response.text
 
-def get_precatory_data(session: Session, payload: dict) -> str:
-    response = session.post(API_URL, data=payload, headers=HEADER)
-    return response.text
-
 def get_view_state(response: str) -> str:
     view_state: str = response.split('javax.faces.ViewState:0"><![CDATA[')[1]
     view_state: str = view_state.split("]]")
-    return view_state
-
-def get_first_view_state(session: Session) -> str:
-    response: Response = session.get(API_URL)
-    soup = BeautifulSoup(response.text, "html.parser")
-    return soup.find("input", {"name": "javax.faces.ViewState"})["value"]
+    return view_state[0]
 
 def transform_xml_to_list(response: str) -> None:
     root = ET.fromstring(response)
@@ -77,7 +68,7 @@ def generate_csv(option: int) -> None:
     page: int = 1
     start: int = 0
     session: Session = requests.session()
-    view_state: str = get_first_view_state(session)
+    view_state: str = get_first_view_state(API_URL, session)
     response: str = get_first_response(session, view_state, option)
     
     while True:
@@ -108,7 +99,7 @@ def generate_csv(option: int) -> None:
             "javax.faces.ViewState": view_state,
         }
         
-        response: str = get_precatory_data(session, payload)
+        response: str = get_precatory_data(API_URL, session, payload, HEADER)
         view_state = get_view_state(response)
         response = transform_xml_to_list(response)
         if response:
@@ -118,4 +109,4 @@ def generate_csv(option: int) -> None:
         
     df: DataFrame = pd.DataFrame(DATA, columns=COLUMNS)
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
-    df.to_csv(f"{OPTIONS[option]}{today}.csv", encoding='ISO-8859-1', index=False)
+    df.to_csv(f"{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
