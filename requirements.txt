@@ -1,6 +1,8 @@
 lxml
 pandas
 aiohttp
+selenium
 requests
+pdfplumber
 prompt_toolkit
 beautifulsoup4
