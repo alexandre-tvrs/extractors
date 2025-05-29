@@ -23,8 +23,6 @@ def parse_valor_requisitorio(valor):
         return None
 
 async def get_precatory_data():
-    global DATA  # garante que DATA seja preenchido fora da função
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(viewport={"width": 1920, "height": 1080})
@@ -43,6 +41,7 @@ async def get_precatory_data():
         
         try:
             while True:
+                print(f"Extraidos até o momento: {len(DATA)}")
                 last_rowindex = await page.evaluate('''
                     () => {
                         let el = document.querySelector(".mid-viewport");
@@ -115,9 +114,9 @@ async def get_precatory_data():
 
         await browser.close()
 
-def generate_csv(option: int) -> None:
+def generate_csv(option: int, save_path: str) -> None:
     run(get_precatory_data())
     
     df: DataFrame = pd.DataFrame(DATA, columns=COLUMNS)
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
-    df.to_csv(f"{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
+    df.to_csv(f"{save_path}/{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)

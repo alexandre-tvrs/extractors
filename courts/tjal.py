@@ -3,9 +3,6 @@ import pdfplumber
 import pandas as pd
 from io import BytesIO
 from pandas import DataFrame
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from utils import get_selenium_options
 
 
 API_URL: str = "https://precatorios.tjal.jus.br/api/precatorios/baixar/"
@@ -16,7 +13,7 @@ OPTIONS = {
     739: "ESTADO DE ALAGOAS",
 }
 
-def generate_csv(option: int) -> None:
+def generate_csv(option: int, save_path: str) -> None:
     pdf_link:str = f"{API_URL}{option}"
     response = requests.get(pdf_link, stream=True)
     pdf_bytes = BytesIO(response.content)
@@ -35,4 +32,4 @@ def generate_csv(option: int) -> None:
     df: DataFrame = pd.DataFrame(DATA, columns=COLUMNS)
     df["VALOR ATUALIZADO"] = df["VALOR ATUALIZADO"].str.replace('R$', '').str.replace('.', '').str.replace(',', '.').str.strip()
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
-    df.to_csv(f"{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
+    df.to_csv(f"{save_path}/{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)

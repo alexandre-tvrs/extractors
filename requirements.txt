@@ -1,6 +1,8 @@
 lxml
+pyyaml
 pandas
 aiohttp
+pydantic
 selenium
 requests
 playwright

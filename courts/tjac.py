@@ -40,7 +40,7 @@ def get_pdf_link(option: str) -> str:
                 
                 return pdf_link
 
-def generate_csv(option: str) -> None:
+def generate_csv(option: str, save_path: str) -> None:
     pdf_link = get_pdf_link(option)
     response = requests.get(pdf_link, stream=True)
     pdf_bytes = BytesIO(response.content)
@@ -57,4 +57,4 @@ def generate_csv(option: str) -> None:
     df: DataFrame = pd.concat(DATA, ignore_index=True, axis=0)
     df = df.replace(r'\n', ' ', regex=True)
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
-    df.to_csv(f"{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
+    df.to_csv(f"{save_path}/{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)

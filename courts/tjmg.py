@@ -100,7 +100,7 @@ def transform_xml_to_list(response: str, start: int) -> None:
                 
         DATA.append([ordem_aberto, ordem_cronologica, ente, numero_precatorio, vencimento, natureza, numero_sei, credor, protocolo, situacao, numero_processo_execucao, valor_face])
 
-def generate_csv(option: int) -> None:
+def generate_csv(option: int, save_path: str) -> None:
     page: int = 1
     start: int = 0
     session: Session = requests.session()
@@ -141,4 +141,4 @@ def generate_csv(option: int) -> None:
         
     df: DataFrame = pd.DataFrame(DATA, columns=COLUMNS)
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
-    df.to_csv(f"{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
+    df.to_csv(f"{save_path}/{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
