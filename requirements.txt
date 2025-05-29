@@ -3,6 +3,7 @@ pandas
 aiohttp
 selenium
 requests
+playwright
 pdfplumber
 prompt_toolkit
 beautifulsoup4
