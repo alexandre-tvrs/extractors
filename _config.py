@@ -2,8 +2,11 @@ import yaml
 from pydantic import BaseModel
 from yaml import CLoader as Loader
 
+class CredentialsConfig(BaseModel):
+    ANTICAPTCHA: str
 class AppConfig(BaseModel):
     SAVE_PATH: str
+    CREDENTIALS: CredentialsConfig
 
 class Config(BaseModel):
     APP: AppConfig

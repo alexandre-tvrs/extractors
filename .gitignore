@@ -51,3 +51,6 @@ settings.json
 *.png
 *.xlsx
 *.csv
+
+# keys files
+settings.yaml

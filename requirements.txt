@@ -9,3 +9,4 @@ playwright
 pdfplumber
 prompt_toolkit
 beautifulsoup4
+python-anticaptcha
