@@ -5,6 +5,7 @@ from prompt_toolkit.shortcuts import radiolist_dialog, button_dialog
 
 MENU_OPTIONS: list = [
     {"name": "EXTRAÇÃO DE PRECATÓRIOS", "option": "extraction"},
+    {"name": "EXTRAÇÃO DE ASSISTÊNCIAS JUDICIAIS", "option": "aj"},
     {"name": "CONFIGURAÇÕES DA APLICAÇÃO", "option": "config"}
 ]
 
@@ -38,7 +39,50 @@ ESTATES_OPTIONS: list = [
     {"name": "TRIBUNAL DE JUSTIÇA DO TOCANTINS", "court": "tjto"}
 ]
 
-def config(app_config: Config) -> dict:
+AJ_OPTIONS: list = [
+    {"name": "MEDEIROS ADMINISTRAÇÃO JUDICIAL", "aj": "medeiros"},
+]
+
+def precatory_menu(app_config: Config) -> None:
+    result = radiolist_dialog(
+        title="PRECATÓRIOS",
+        text="ESCOLHA O ESTADO",
+        values=[(option["court"], option["name"]) for option in ESTATES_OPTIONS],
+    ).run()
+    
+    if not result:
+        exit()
+    
+    module = importlib.import_module(f"courts.{result}")
+    
+    options = module.OPTIONS
+    
+    federative_entity = radiolist_dialog(
+        title="Selecionar Ente",
+        text="Selecione o Ente Federativo desejado",
+        values=[(k, v) for k, v in options.items()],
+    ).run()
+    
+    if not federative_entity:
+        exit()
+    
+    module.generate_csv(federative_entity, app_config.APP.SAVE_PATH)
+    
+def aj_menu(app_config: Config) -> None:
+    result = radiolist_dialog(
+        title="ASSISTÊNTES JURÍDICOS",
+        text="ESCOLHA O AJ",
+        values=[(option["aj"], option["name"]) for option in AJ_OPTIONS],
+    ).run()
+    
+    if not result:
+        exit()
+    
+    module = importlib.import_module(f"ajs.{result}")
+    
+    module.generate_csv(app_config.APP.SAVE_PATH)
+
+def config_menu(app_config: Config) -> dict:
     config_menu = button_dialog(
         title="MENU DE CONFIGURAÇÕES",
         text=f"""
@@ -68,33 +112,13 @@ def main() -> None:
     ).run()
     
     if menu == "extraction":
-    
-        result = radiolist_dialog(
-            title="PRECATÓRIOS",
-            text="ESCOLHA O ESTADO",
-            values=[(option["court"], option["name"]) for option in ESTATES_OPTIONS],
-        ).run()
+        precatory_menu(app_config)
         
-        if not result:
-            exit()
+    elif menu == "aj":
+        aj_menu(app_config)
         
-        module = importlib.import_module(f"courts.{result}")
-        
-        options = module.OPTIONS
-        
-        federative_entity = radiolist_dialog(
-            title="Selecionar Ente",
-            text="Selecione o Ente Federativo desejado",
-            values=[(k, v) for k, v in options.items()],
-        ).run()
-        
-        if not federative_entity:
-            exit()
-        
-        module.generate_csv(federative_entity, app_config.APP.SAVE_PATH)
-    
     elif menu == "config":
-        config(app_config)
+        config_menu(app_config)
     
 if __name__ == '__main__':
     main()
