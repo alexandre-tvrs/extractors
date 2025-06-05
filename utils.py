@@ -1,6 +1,9 @@
+from io import BytesIO
 from bs4 import BeautifulSoup
+from _config import load_app_config
 from requests import Response, Session
 from selenium.webdriver.chrome.options import Options
+from python_anticaptcha import AnticaptchaClient, ImageToTextTask
 
 def get_first_view_state(url: str, session: Session) -> str:
     response: Response = session.get(url)
@@ -23,3 +26,11 @@ def get_selenium_options() -> Options:
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
     return chrome_options
+
+def solve_captcha(captcha_binary: bytes) -> str:
+    config = load_app_config()
+    client = AnticaptchaClient(config.APP.CREDENTIALS.ANTICAPTCHA)
+    task = ImageToTextTask(BytesIO(captcha_binary))
+    job = client.createTask(task)
+    job.join()
+    return job.get_captcha_text()

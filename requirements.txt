@@ -1,12 +1,14 @@
 lxml
 pyyaml
 pandas
+pymupdf
 aiohttp
 pydantic
 selenium
 requests
 playwright
 pdfplumber
+setuptools
 prompt_toolkit
 beautifulsoup4
 python-anticaptcha
