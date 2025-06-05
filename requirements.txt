@@ -10,5 +10,6 @@ playwright
 pdfplumber
 setuptools
 prompt_toolkit
+camelot-py[cv]
 beautifulsoup4
 python-anticaptcha

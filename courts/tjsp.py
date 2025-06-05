@@ -1,16 +1,15 @@
 import os
-import re
-import zipfile
 import fitz
+import camelot
 import pandas as pd
-from io import BytesIO
 from pandas import DataFrame
 from utils import solve_captcha
+from concurrent.futures import ProcessPoolExecutor
 from playwright.sync_api import sync_playwright, Browser, Page
 
 
-API_URL: str = "https://www.tjsp.jus.br/cac/scp/webRelPublicLstPagPrecatPendentes.aspx"
-COLUMNS: list = ["ORDEM DE PAGAMENTO", "ORDEM ORÇAMENTÁRIA", "NATUREZA", "NÚMERO DO PROCESSO", "SUSPENÇÃO", "DATA DO PROTOCOLO", "ENTE DEVEDOR", "NUMERO DE AUTOS ANTIGOS", "ES/EP", "NÚMERO DO PROTOCOLO GERAL"]
+API_URL: str = "https://www.tjsp.jus.br/cac/scp/aPublicacao_ConsultaDividaAnual.aspx"
+COLUMNS: list = ["PROCESSO DEPRE", "NATUREZA", "PROTOCOLO", "NÚMERO ORDEM", "DATA DE ENSEJO DA ORDEM", "CONDIÇÃO DE SUPERPREFERÊNCIA", "VALOR PAGO", "SALDO"]
 DATA: list = []
 
 OPTIONS = {
@@ -26,48 +25,63 @@ def captcha(page: Page):
 
     return solve_captcha(img_bytes)
 
-def extract_blocks(raw_text: str) -> None:
-    flat_text = raw_text.replace("\n", " ")
-    
-    if "pelos respectivos Tribunais." in flat_text:
-        flat_text = flat_text.split("pelos respectivos Tribunais.")[1]
-    
-    flat_text = flat_text.strip()
-    pattern = re.compile(r'(?=\d{7}-\d{2}\.\d{4}\.8\.26\.\d{4} (?:OUTRAS ESPÉCIES|ALIMENTARES) Ordem de Pagamento:)')
-    matches = list(pattern.finditer(flat_text))
-    blocks = []
-    
-    for i, match in enumerate(matches):
-        start = match.start()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(flat_text)
-        blocks.append(flat_text[start:end].strip())
-    
-    for block in blocks:
-        aux = block.split("Ordem de Pagamento:")[0].split(" ")
-        auto_number = aux[0]
-        nature = aux[1] if len(aux) == 2 else " ".join(aux[1:])
-        aux = block.split("Ordem Orçamentária: ")[1].split(" ")
-        payment_order = aux[0]
-        budgeting_order = aux[1]
-        process_number = aux[2]
-        es_ep = aux[4]
-        suspended = aux[5]
-        protocol_date = aux[11]
-        general_protocol_number = aux[10]
-        debtor = block.split("Devedora: ")[1]
-    
-        DATA.append([payment_order, budgeting_order, nature, process_number, suspended, protocol_date, debtor, auto_number, es_ep, general_protocol_number])
+def clean_value(value: str) -> float:
+    if pd.isna(value):
+        return 0.0
+    value = value.replace(".", "").replace(",", ".")
+    return float(value)
 
-def get_data_from_pdf(pdf_bytes: bytes) -> None:
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    all_text = ""
-    for page in doc:
-        all_text += page.get_text() + "\n"
-    doc.close()
+def remove_empty_columns(df: DataFrame, limit: float = 0.5) -> DataFrame:
+    df = df.replace('', pd.NA)
+    prop_nulls = df.isna().mean()
+    valid_columns = prop_nulls[prop_nulls <= limit].index
+    return df[valid_columns]
     
-    extract_blocks(all_text)
 
-def get_zip(option: int) -> None:
+def process_pdf_pages(args) -> None:
+    pdf_path, page_range = args
+    dfs: list[DataFrame] = []
+    tables = camelot.read_pdf(pdf_path, pages=page_range, flavor='stream')
+    float_columns = ['VALOR PAGO', 'SALDO']
+    for table in tables:
+        try:
+            processo_row = table.df[table.df[0] == 'Processo DEPRE'].index[0]
+        except:
+            continue
+        table_df: DataFrame = table.df.iloc[processo_row+1:].copy()
+        table_df = table_df.replace({r'\*|\n': '', r'\s+': ' '}, regex=True)
+        table_df = table_df[table_df.isnull().sum(axis=1) <= 2]
+        table_df = table_df[~table_df[0].astype(str).str.startswith("Total do Ano")]
+        table_df = table_df[~table_df[0].astype(str).str.startswith("TOTAL GERAL")]
+        table_df = remove_empty_columns(table_df)
+        table_df = table_df.loc[:, ~(table_df.isna().all() | (table_df == '').all())]
+        table_df.reset_index(drop=True, inplace=True)
+        
+        if len(table_df.columns) != 8:
+            print(table_df.head())
+            continue
+        
+        table_df.columns = COLUMNS
+        
+        for col in float_columns:
+            table_df[col] = table_df[col].apply(clean_value)
+            
+        dfs.append(table_df)
+        
+    return dfs
+
+def get_data_from_pdf(pdf_path: str) -> None:
+    with fitz.open(pdf_path) as doc:
+        qt_pages = len(doc)
+    
+    pages = [f"{start}-{min(start+49, qt_pages)}" for start in range(1, qt_pages+1, 50)]
+    with ProcessPoolExecutor() as executor:
+        args = [(pdf_path, page_range) for page_range in pages]
+        results = executor.map(process_pdf_pages, args)
+        for df in results:
+            DATA.extend(df)
+        
+def get_pdf(option: int) -> None:
     with sync_playwright() as p:
         browser: Browser = p.chromium.launch(headless=False)
         page: Page = browser.new_page()
@@ -79,22 +93,16 @@ def get_zip(option: int) -> None:
             page.click("text=Abrir Relatório")
             
         download = download_info.value
-        download.save_as("temp.zip")
+        download.save_as("temp.pdf")
         
-def read_pdf(zip_path: str = "temp.zip") -> None:
-    with zipfile.ZipFile(zip_path, 'r') as z:
-        for filename in z.namelist():
-            if filename.lower().endswith(".pdf"):
-                with z.open(filename) as pdf_file:
-                    pdf_bytes = BytesIO(pdf_file.read())
-                    get_data_from_pdf(pdf_bytes)
+def read_pdf(pdf_path: str = "temp.pdf") -> None:
+    get_data_from_pdf(pdf_path)
                             
-    os.remove(zip_path)
+    os.remove(pdf_path)
 
 def generate_csv(option: int, save_path: str) -> None:
-    get_zip(option)
+    get_pdf(option)
     read_pdf()
-    
-    df: DataFrame = DataFrame(DATA, columns=COLUMNS)
+    df: DataFrame = pd.concat(DATA, ignore_index=True)
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
     df.to_csv(f"{save_path}/{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
