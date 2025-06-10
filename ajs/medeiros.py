@@ -117,20 +117,19 @@ async def get_process_files(browser: Browser, process_endpoint: str) -> None:
     page = await browser.new_page(base_url=URL)
     await page.goto(f"/{process_endpoint}")
 
-    process_name: str = await page.locator("h3.title-custom").all_inner_texts
+    process_name: str = page.locator("h3.title-custom").text_content
     process_name = clean_string(process_name)
     print(process_name)
 
     creditors_path, prj_path = create_process_files_path(process_name)
 
-    get_creditors_files_from_process(page, process_endpoint, creditors_path)
+    await get_creditors_files_from_process(page, process_endpoint, creditors_path)
 
 
 async def get_all_endpoints(page: Page, browser: Browser) -> list[str]:
     tasks: list = []
     next_li = page.locator("li.paginate_button.next").first
     next_a = next_li.locator("a")
-
     while True:
         page_trs = await page.locator(
             "#DataTables_Table_0 tbody tr a.text-left.btn-processo"
@@ -168,5 +167,5 @@ async def run_medeiros() -> None:
         await browser.close()
 
 
-def main() -> None:
+def generate_zip(save_path: str) -> None:
     asyncio.run(run_medeiros())

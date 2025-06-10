@@ -80,7 +80,7 @@ def aj_menu(app_config: Config) -> None:
     
     module = importlib.import_module(f"ajs.{result}")
     
-    module.generate_csv(app_config.APP.SAVE_PATH)
+    module.generate_zip(app_config.APP.SAVE_PATH)
 
 def config_menu(app_config: Config) -> dict:
     config_menu = button_dialog(
