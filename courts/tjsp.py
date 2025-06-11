@@ -2,7 +2,6 @@ import os
 import fitz
 import camelot
 import pandas as pd
-from pandas import DataFrame
 from utils import solve_captcha
 from concurrent.futures import ProcessPoolExecutor
 from playwright.sync_api import sync_playwright, Browser, Page
@@ -31,7 +30,7 @@ def clean_value(value: str) -> float:
     value = value.replace(".", "").replace(",", ".")
     return float(value)
 
-def remove_empty_columns(df: DataFrame, limit: float = 0.5) -> DataFrame:
+def remove_empty_columns(df: pd.DataFrame, limit: float = 0.5) -> pd.DataFrame:
     df = df.replace('', pd.NA)
     prop_nulls = df.isna().mean()
     valid_columns = prop_nulls[prop_nulls <= limit].index
@@ -40,7 +39,7 @@ def remove_empty_columns(df: DataFrame, limit: float = 0.5) -> DataFrame:
 
 def process_pdf_pages(args) -> None:
     pdf_path, page_range = args
-    dfs: list[DataFrame] = []
+    dfs: list[pd.DataFrame] = []
     tables = camelot.read_pdf(pdf_path, pages=page_range, flavor='stream')
     float_columns = ['VALOR PAGO', 'SALDO']
     for table in tables:
@@ -48,7 +47,7 @@ def process_pdf_pages(args) -> None:
             processo_row = table.df[table.df[0] == 'Processo DEPRE'].index[0]
         except:
             continue
-        table_df: DataFrame = table.df.iloc[processo_row+1:].copy()
+        table_df: pd.DataFrame = table.df.iloc[processo_row+1:].copy()
         table_df = table_df.replace({r'\*|\n': '', r'\s+': ' '}, regex=True)
         table_df = table_df[table_df.isnull().sum(axis=1) <= 2]
         table_df = table_df[~table_df[0].astype(str).str.startswith("Total do Ano")]
@@ -103,6 +102,6 @@ def read_pdf(pdf_path: str = "temp.pdf") -> None:
 def generate_csv(option: int, save_path: str) -> None:
     get_pdf(option)
     read_pdf()
-    df: DataFrame = pd.concat(DATA, ignore_index=True)
+    df: pd.DataFrame = pd.concat(DATA, ignore_index=True)
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
     df.to_csv(f"{save_path}/{OPTIONS[option]}_{today}.csv", encoding='ISO-8859-1', index=False)
